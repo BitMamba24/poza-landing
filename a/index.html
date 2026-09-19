@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poza: a pose coach inside your iPhone camera</title>
+<meta name="description" content="Poza puts a translucent pose guide in the camera and a voice coach in your ear, so the next time you get handed the phone the photo looks directed.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Poza: a pose coach inside your iPhone camera">
+<meta property="og:description" content="A guide in the camera and a coach in your ear, for the next time you get handed the phone.">
+<meta property="og:image" content="assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Geist:wght@400;500&display=swap">
+<link rel="stylesheet" href="scrollcraft.css">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+<style>
+  /* ---- the brand: six colours, two faces ---------------------------------- */
+  :root {
+    --sc-canvas:      #0A1424;
+    --sc-surface:     #121E33;
+    --sc-ink:         #EEF3F9;
+    --sc-ink-soft:    #A6B6CB;
+    --sc-accent:      #3D8AC9;
+    --sc-accent-ink:  #06101C;
+    --sc-font-display: "Archivo", system-ui, sans-serif;
+    --sc-font-text:    "Geist", system-ui, sans-serif;
+    --sc-shadow-color: 215 55% 3%;
+    --sc-r-md: 10px;
+  }
+  body { line-height: 1.66; letter-spacing: 0; font-weight: 400; }
+  .sc-body { line-height: 1.66; }
+  .sc-display { font-weight: 600; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---- chrome: a wordmark and one link ------------------------------------ */
+  .bar {
+    position: fixed; inset: 0 0 auto 0; z-index: var(--sc-z-chrome);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: clamp(0.9rem, 2vw, 1.5rem) var(--sc-gutter);
+    pointer-events: none;
+  }
+  .bar > * { pointer-events: auto; }
+  .bar__mark {
+    font-family: var(--sc-font-display); font-weight: 600; font-size: 1.25rem;
+    letter-spacing: var(--sc-track-snug); text-decoration: none;
+  }
+  .bar__cta {
+    font-size: var(--sc-t-sm); font-weight: 500; text-decoration: none;
+    padding: 0.55em 0.95em; border-radius: var(--sc-r-md);
+    background: color-mix(in oklab, var(--sc-canvas) 72%, transparent);
+    box-shadow: var(--sc-edge), 0 0 0 1px var(--sc-hairline);
+    transition: background 140ms var(--sc-ease-out);
+  }
+  .bar__cta:hover { background: color-mix(in oklab, var(--sc-surface) 92%, transparent); }
+  .bar__cta:active { transform: translateY(1px); }
+
+  /* ---- buttons and links -------------------------------------------------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0.85em 1.45em; border: 0; border-radius: var(--sc-r-md);
+    background: var(--sc-accent); color: var(--sc-accent-ink);
+    font-weight: 500; font-size: var(--sc-t-base); text-decoration: none;
+    white-space: nowrap; cursor: pointer;
+    box-shadow: var(--sc-e2), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: filter 140ms var(--sc-ease-out), box-shadow 140ms var(--sc-ease-out);
+  }
+  .btn:hover { filter: brightness(1.08); box-shadow: var(--sc-e3), inset 0 1px 0 rgba(255,255,255,0.18); }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.6; cursor: default; }
+  .link {
+    color: var(--sc-ink); font-weight: 500; font-size: var(--sc-t-base);
+    text-decoration-color: color-mix(in oklab, var(--sc-accent) 70%, transparent);
+    transition: text-decoration-color 140ms var(--sc-ease-out);
+  }
+  .link:hover { text-decoration-color: var(--sc-accent); }
+
+  /* ---- 1 · the story: hero frame, then the story act, one pinned stage --------- */
+  .story__stage { background: var(--sc-canvas); overflow: clip; }
+  .tunnel {
+    position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; pointer-events: none;
+  }
+  .story__gl { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; display: block; }
+  .heroLayer { position: absolute; inset: 0; z-index: 3; }
+  .plane { position: absolute; will-change: transform; }
+  .plane img { max-width: none; }
+  .plane--type { z-index: 1; left: var(--sc-gutter); right: var(--sc-gutter); top: 12vh; }
+  .hero__type {
+    margin: 0; font-family: var(--sc-font-display); font-weight: 700;
+    font-size: clamp(5rem, 15.5vw, 15rem); line-height: 0.88; letter-spacing: -0.045em;
+    color: var(--sc-ink); text-wrap: balance;
+  }
+  .hero__type span { display: block; }
+  .hero__type span:last-child { padding-left: 0.42em; }
+  .plane--her { z-index: 2; bottom: -2vh; left: 41%; height: 90vh; width: calc(90vh * 0.662); }
+  .plane--her img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; filter: drop-shadow(0 30px 40px rgba(2,6,14,0.5)); }
+  .plane--leaves { z-index: 3; top: -8vh; right: -4vw; width: 34vw; height: 42vh; opacity: 0.9; }
+  .plane--leaves img {
+    width: 100%; height: 100%; object-fit: cover;
+    -webkit-mask-image: radial-gradient(ellipse 70% 70% at 78% 18%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 70% 70% at 78% 18%, #000 40%, transparent 100%);
+  }
+  .plane--column { z-index: 3; top: -10vh; bottom: -12vh; left: -3vw; width: 15vw; opacity: 0.95; }
+  .plane--column img {
+    width: 100%; height: 100%; object-fit: cover; filter: brightness(0.5);
+    -webkit-mask-image: linear-gradient(to right, #000 55%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 55%, transparent 100%);
+  }
+  .hero__floor {
+    position: absolute; inset: auto 0 0 0; height: 22vh; z-index: 4; pointer-events: none;
+    background: linear-gradient(to top, var(--sc-canvas) 0%, color-mix(in oklab, var(--sc-canvas) 55%, transparent) 50%, transparent 100%);
+  }
+  .heroLayer .sc-scrim { z-index: 5; }
+  .hero__copy { max-width: min(30rem, 34vw); }
+  .hero__copy .sc-lede { max-width: 30ch; }
+  .hero__actions { display: flex; align-items: center; gap: var(--sc-5); margin-top: var(--sc-6); flex-wrap: wrap; }
+
+  .cam {
+    position: absolute; z-index: 7; margin: 0;
+    right: 6vw; bottom: 9vh;
+    width: clamp(9rem, 17vw, 14.5rem); aspect-ratio: 2 / 3;
+    overflow: clip; border-radius: 4px;
+    box-shadow: var(--sc-e3);
+    transform: perspective(1100px) rotateY(-18deg) rotateX(7deg) rotateZ(-5deg);
+    transform-origin: 50% 50%;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+  .cam__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cam__bracket {
+    position: absolute; z-index: 5; width: 18px; height: 18px;
+    border: 2px solid var(--sc-accent); opacity: 0.85;
+  }
+  .cam__bracket--tl { top: 6%; left: 6%; border-right: 0; border-bottom: 0; }
+  .cam__bracket--tr { top: 6%; right: 6%; border-left: 0; border-bottom: 0; }
+  .cam__bracket--bl { bottom: 6%; left: 6%; border-right: 0; border-top: 0; }
+  .cam__bracket--br { bottom: 6%; right: 6%; border-left: 0; border-top: 0; }
+  .cam__band { position: absolute; inset: auto 0 0 0; height: 30%; z-index: 4; background: linear-gradient(to top, rgba(6,12,22,0.9), transparent); }
+  .cam__caption {
+    position: absolute; z-index: 6; left: 9%; right: 9%; bottom: 8%; margin: 0;
+    font-family: var(--sc-font-display); font-weight: 500; font-size: clamp(0.7rem, 0.55rem + 0.5vw, 0.95rem);
+    line-height: 1.3; letter-spacing: var(--sc-track-snug); color: var(--sc-ink);
+  }
+
+  .story__copy--b {
+    position: absolute; z-index: var(--sc-z-copy); right: var(--sc-gutter); top: 16vh; width: min(24rem, 34vw); text-align: right;
+  }
+  .story__scrimB {
+    position: absolute; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+    background: linear-gradient(to bottom left, color-mix(in oklab, var(--sc-canvas) 96%, transparent) 0%,
+      color-mix(in oklab, var(--sc-canvas) 88%, transparent) 22%, color-mix(in oklab, var(--sc-canvas) 50%, transparent) 40%, transparent 56%);
+  }
+  .story__copy--b p { margin: 0; font-family: var(--sc-font-display); font-weight: 500; font-size: var(--sc-t-xl); line-height: 1.2; letter-spacing: var(--sc-track-snug); }
+  .story__copy--b p + p { margin-top: var(--sc-3); color: var(--sc-ink-soft); font-family: var(--sc-font-text); font-weight: 400; font-size: var(--sc-t-base); }
+  .story__copy--c {
+    position: absolute; z-index: var(--sc-z-copy); left: var(--sc-gutter); bottom: 12vh; width: min(22rem, 40vw); margin: 0;
+    font-family: var(--sc-font-display); font-weight: 500; font-size: var(--sc-t-xl); line-height: 1.2; letter-spacing: var(--sc-track-snug);
+  }
+  .story__copy--c small { display: block; margin-top: var(--sc-2); font-family: var(--sc-font-text); font-weight: 400; font-size: var(--sc-t-sm); color: var(--sc-ink-soft); }
+  .story__copy--d {
+    position: absolute; z-index: var(--sc-z-copy); left: var(--sc-gutter); bottom: 10vh; margin: 0;
+    font-family: var(--sc-font-display); font-weight: 600; font-size: var(--sc-t-3xl); line-height: 1; letter-spacing: var(--sc-track-tight);
+  }
+  .story__copy--d small { display: block; margin-top: var(--sc-3); font-family: var(--sc-font-text); font-weight: 400; font-size: var(--sc-t-base); color: var(--sc-ink-soft); letter-spacing: 0; }
+  .story__scrimC, .story__scrimD {
+    position: absolute; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+    background: linear-gradient(to top right, color-mix(in oklab, var(--sc-canvas) 92%, transparent) 0%,
+      color-mix(in oklab, var(--sc-canvas) 66%, transparent) 26%, color-mix(in oklab, var(--sc-canvas) 20%, transparent) 46%, transparent 62%);
+  }
+  .land { position: absolute; inset: 0; z-index: 9; pointer-events: none; }
+  .land__bracket {
+    position: absolute; width: 26px; height: 26px; opacity: 0;
+    border: 2px solid var(--sc-accent); will-change: transform, opacity;
+  }
+  .land__bracket--tl { top: 6%; left: 6%; border-right: 0; border-bottom: 0; }
+  .land__bracket--tr { top: 6%; right: 6%; border-left: 0; border-bottom: 0; }
+  .land__bracket--bl { bottom: 6%; left: 6%; border-right: 0; border-top: 0; }
+  .land__bracket--br { bottom: 6%; right: 6%; border-left: 0; border-top: 0; }
+
+  /* reduced motion or no WebGL: the finished photo fades over the hero frame */
+  .story__still { position: absolute; inset: 0; z-index: 6; display: none; }
+  .story__still img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+  .story__stage.is-still .story__still { display: block; opacity: clamp(0, calc((var(--sc-p, 0) - 0.4) * 5), 1); }
+  .story__stage.is-still .story__gl, .story__stage.is-still .tunnel { display: none; }
+  .story__stage.is-still .heroLayer { opacity: clamp(0, calc(1 - (var(--sc-p, 0) - 0.3) * 6), 1); }
+  .story__stage.is-still .cam { transform: none; opacity: clamp(0, calc(1 - (var(--sc-p, 0) - 0.3) * 6), 1); }
+  .story__stage.is-still .story__scrimD { opacity: clamp(0, calc((var(--sc-p, 0) - 0.8) * 8), 1); }
+  .story__stage.is-still .story__scrimB { opacity: calc(clamp(0, calc((var(--sc-p, 0) - 0.32) * 10), 1) * clamp(0, calc((0.7 - var(--sc-p, 0)) * 10), 1)); }
+
+  /* ---- 2 · what it is: type on navy --------------------------------------- */
+  .about { padding-block: var(--sc-8) var(--sc-10); }
+  .about__grid {
+    display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--sc-6); row-gap: var(--sc-6);
+    align-items: start;
+  }
+  .about__title { grid-column: 1 / 10; }
+  .about__lede { grid-column: 1 / 6; grid-row: 2; }
+  .about__body { grid-column: 7 / 13; grid-row: 2; display: grid; gap: var(--sc-5); }
+  .about__body .sc-body { max-width: 52ch; }
+
+  /* ---- 3 · what it watches: a rail ---------------------------------------- */
+  .watch__stage { display: flex; align-items: center; background: var(--sc-canvas); }
+  .rail {
+    display: flex; align-items: flex-start; gap: clamp(1.5rem, 3vw, 3rem);
+    padding-inline: var(--sc-gutter); width: max-content;
+  }
+  .rail__lead { flex: 0 0 auto; width: clamp(18rem, 30vw, 27rem); padding-top: 4vh; }
+  .rail__lead .sc-body { margin-top: var(--sc-5); }
+  .item { flex: 0 0 auto; width: clamp(16rem, 22vw, 21rem); margin: 0; }
+  .item figure { margin: 0; aspect-ratio: 4 / 5; overflow: clip; border-radius: 4px; box-shadow: var(--sc-e2); }
+  .item img { width: 100%; height: 100%; object-fit: cover; }
+  .item h3 {
+    font-family: var(--sc-font-display); font-weight: 600; letter-spacing: var(--sc-track-snug);
+    font-size: var(--sc-t-xl); line-height: 1.05; margin: var(--sc-5) 0 0;
+  }
+  .item p { margin: var(--sc-2) 0 0; color: var(--sc-ink-soft); max-width: 30ch; }
+  .rail__end {
+    flex: 0 0 auto; width: clamp(14rem, 20vw, 20rem); align-self: center;
+    font-family: var(--sc-font-display); font-weight: 500; font-size: var(--sc-t-lg);
+    letter-spacing: var(--sc-track-snug); color: var(--sc-ink); margin: 0;
+    padding-right: var(--sc-gutter);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .item, .rail__end {
+      --settle: clamp(0.55, calc(0.55 + (var(--sc-p, 1) - var(--i, 0) * 0.12) * 2.2), 1);
+      opacity: var(--settle);
+    }
+  }
+
+  /* ---- 4 · sign up: the finished photo, held still ------------------------ */
+  .close__stage { background: var(--sc-canvas); }
+  .close__back { display: block; position: absolute; inset: 0; z-index: 0; }
+  .close__back img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
+  .close__back::after { content: ""; position: absolute; inset: 0; background: color-mix(in oklab, var(--sc-canvas) 66%, transparent); }
+  .close__plate {
+    position: absolute; z-index: 1; top: 0; height: 100vh; height: 100svh; width: auto; max-width: none;
+    right: 6vw; filter: brightness(0.9);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 16%, #000 86%, transparent 100%);
+  }
+  .close__scrim {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: linear-gradient(to right, color-mix(in oklab, var(--sc-canvas) 94%, transparent) 0%,
+      color-mix(in oklab, var(--sc-canvas) 84%, transparent) 36%, color-mix(in oklab, var(--sc-canvas) 30%, transparent) 54%, transparent 68%);
+  }
+  .close__copy {
+    position: absolute; z-index: var(--sc-z-copy);
+    left: var(--sc-gutter); top: 50%; translate: 0 -50%;
+    width: min(36rem, 44vw);
+  }
+  .close__copy .sc-display { max-width: 13ch; }
+  .close__copy .sc-body { margin-top: var(--sc-5); max-width: 38ch; }
+  .join { display: flex; gap: var(--sc-3); margin-top: var(--sc-6); flex-wrap: wrap; align-items: stretch; }
+  .join input {
+    flex: 1 1 14rem; min-width: 0; padding: 0.8em 1em; border-radius: var(--sc-r-md);
+    background: color-mix(in oklab, var(--sc-surface) 82%, transparent); border: 1px solid var(--sc-hairline-strong);
+    color: var(--sc-ink); box-shadow: var(--sc-edge);
+    transition: border-color 140ms var(--sc-ease-out);
+  }
+  .join input::placeholder { color: color-mix(in oklab, var(--sc-ink-soft) 80%, transparent); }
+  .join input:hover { border-color: color-mix(in oklab, var(--sc-ink) 34%, transparent); }
+  .join input:focus-visible { outline-offset: 2px; }
+  .join__done { flex-basis: 100%; margin: var(--sc-2) 0 0; color: var(--sc-ink); font-weight: 500; }
+  .join__done[hidden] { display: none; }
+  .foot {
+    position: absolute; z-index: var(--sc-z-copy); inset: auto var(--sc-gutter) clamp(1rem, 3vh, 2rem);
+    display: flex; gap: var(--sc-6); flex-wrap: wrap; align-items: baseline;
+    font-size: var(--sc-t-xs); color: var(--sc-ink-soft);
+  }
+  .foot__mark { font-family: var(--sc-font-display); font-weight: 600; color: var(--sc-ink); font-size: var(--sc-t-sm); }
+
+  /* ---- reduced motion ----------------------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    .plane { transform: none !important; }
+  }
+
+  /* ---- phones --------------------------------------------------------------- */
+  @media (max-width: 860px) {
+    .plane--type { top: 10svh; }
+    .hero__type { font-size: clamp(3.4rem, 21vw, 6rem); }
+    .plane--her { height: 74svh; width: calc(74svh * 0.662); left: 50%; margin-left: calc(-37svh * 0.662); bottom: 0; }
+    .plane--leaves { width: 60vw; height: 30svh; top: -6svh; right: -10vw; }
+    .plane--column { display: none; }
+    .hero__floor { height: 40svh; }
+    .heroLayer .sc-scrim--band {
+      background: linear-gradient(to top, color-mix(in oklab, var(--sc-canvas) 97%, transparent) 0%,
+        color-mix(in oklab, var(--sc-canvas) 92%, transparent) 30%, color-mix(in oklab, var(--sc-canvas) 60%, transparent) 46%, transparent 62%);
+    }
+    .hero__copy { max-width: none; bottom: clamp(1.5rem, 5svh, 3rem); }
+    .hero__copy .sc-lede { font-size: var(--sc-t-base); max-width: 40ch; }
+    .hero__actions { gap: var(--sc-4); margin-top: var(--sc-5); }
+    .cam { right: 4vw; top: 13svh; bottom: auto; width: 34vw; }
+
+    .story__copy--b { left: var(--sc-gutter); right: var(--sc-gutter); width: auto; top: 12svh; text-align: left; }
+    .story__scrimB {
+      background: linear-gradient(to bottom, color-mix(in oklab, var(--sc-canvas) 96%, transparent) 0%,
+        color-mix(in oklab, var(--sc-canvas) 86%, transparent) 30%, color-mix(in oklab, var(--sc-canvas) 30%, transparent) 48%, transparent 62%);
+    }
+    .story__copy--b p { font-size: var(--sc-t-lg); }
+    .story__copy--c { width: auto; right: var(--sc-gutter); bottom: 8svh; font-size: var(--sc-t-lg); }
+    .story__copy--d { bottom: 8svh; font-size: var(--sc-t-2xl); }
+    .story__scrimC, .story__scrimD {
+      background: linear-gradient(to top, color-mix(in oklab, var(--sc-canvas) 94%, transparent) 0%,
+        color-mix(in oklab, var(--sc-canvas) 70%, transparent) 24%, color-mix(in oklab, var(--sc-canvas) 20%, transparent) 42%, transparent 58%);
+    }
+
+    .about { padding-block: var(--sc-7) var(--sc-9); }
+    .about__grid { grid-template-columns: 1fr; row-gap: var(--sc-5); }
+    .about__title, .about__lede, .about__body { grid-column: 1; grid-row: auto; }
+
+    .rail { gap: var(--sc-5); }
+    .rail__lead { width: min(78vw, 22rem); padding-top: 0; }
+    .rail__lead .sc-display { font-size: var(--sc-t-2xl); }
+    .item { width: min(64vw, 17rem); }
+    .rail__end { width: min(60vw, 16rem); }
+
+    .close__plate { right: auto; left: 50%; margin-left: calc(-50svh * 0.667); top: 0; height: 100svh; filter: brightness(0.8); -webkit-mask-image: none; mask-image: none; }
+    .close__scrim {
+      background: linear-gradient(to top, color-mix(in oklab, var(--sc-canvas) 97%, transparent) 0%,
+        color-mix(in oklab, var(--sc-canvas) 90%, transparent) 40%, color-mix(in oklab, var(--sc-canvas) 40%, transparent) 60%, transparent 78%);
+    }
+    .close__copy { top: auto; translate: none; bottom: clamp(4.5rem, 12svh, 7rem); right: var(--sc-gutter); width: auto; }
+    .close__copy .sc-display { font-size: var(--sc-t-2xl); max-width: none; }
+    .close__copy .sc-body { max-width: none; }
+    .join .btn { flex: 1 1 auto; }
+    .foot { gap: var(--sc-3) var(--sc-5); }
+  }
+  @media (max-width: 480px) {
+    .bar__cta { padding: 0.5em 0.8em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sc-grain" aria-hidden="true"></div>
+
+<header class="bar">
+  <a class="bar__mark" href="#top" aria-label="Poza, home">Poza</a>
+  <a class="bar__cta" href="#join">Get early access</a>
+</header>
+
+<main id="top">
+
+  <!-- 1 · THE STORY. One pinned stage: her verdict as the hero frame, him in the tilted camera
+       window in the corner, then the window zooms into the void and Poza goes to work. -->
+  <section id="story" class="story" data-sc-act="pin" data-sc-span="7" data-sc-drift="#0A1424" aria-labelledby="hero-h">
+    <div data-sc-stage class="story__stage" data-story data-sc-verify-state="">
+      <video class="tunnel" data-tunnel muted playsinline preload="none" poster="assets/tunnel-poster.jpg" aria-hidden="true"></video>
+      <canvas class="story__gl" aria-hidden="true"></canvas>
+
+      <div class="heroLayer" data-hero-layer data-planes>
+        <div class="plane plane--type" data-plane="0.35">
+          <h1 id="hero-h" class="hero__type" data-sc-parallax="-0.4"><span>You had</span><span>one job.</span></h1>
+        </div>
+        <div class="plane plane--her" data-plane="0.7">
+          <picture>
+            <source media="(max-width: 860px)" srcset="assets/her-m.png">
+            <img data-sc-parallax="-0.2" src="assets/her.png" width="928" height="1400" alt="A woman with her arms crossed, looking down at the phone in her hand with a flat, unimpressed expression">
+          </picture>
+        </div>
+        <div class="plane plane--leaves" data-plane="1.8" aria-hidden="true">
+          <img data-sc-parallax="0.5" src="assets/lean-leaves.jpg" width="1000" height="1300" alt="">
+        </div>
+        <div class="plane plane--column" data-plane="1.6" aria-hidden="true">
+          <img data-sc-parallax="0.4" src="assets/lean-front.jpg" width="600" height="2880" alt="">
+        </div>
+        <div class="hero__floor" aria-hidden="true"></div>
+        <div class="sc-scrim sc-scrim--band" aria-hidden="true"></div>
+      </div>
+
+      <div class="sc-copy sc-copy--lead hero__copy" data-sc-cue="0 0.12 0 0.3">
+        <p class="sc-lede">Blamed for every bad photo? Poza puts a guide in the camera and a coach in your ear, for the next time you get handed the phone.</p>
+        <div class="hero__actions">
+          <a class="btn" href="#join">Get early access</a>
+          <a class="link" href="#story" data-see-it>See it work</a>
+        </div>
+      </div>
+
+      <figure class="cam" data-cam aria-label="The live camera view: him, phone raised, about to take the shot">
+        <picture>
+          <source media="(max-width: 860px)" srcset="assets/him-m.jpg">
+          <img class="cam__bg" src="assets/him.jpg" width="1024" height="1536" alt="A man on a cobbled riverside street at dusk, phone raised in both hands, about to take a photo">
+        </picture>
+        <span class="cam__bracket cam__bracket--tl" aria-hidden="true"></span>
+        <span class="cam__bracket cam__bracket--tr" aria-hidden="true"></span>
+        <span class="cam__bracket cam__bracket--bl" aria-hidden="true"></span>
+        <span class="cam__bracket cam__bracket--br" aria-hidden="true"></span>
+        <div class="cam__band" aria-hidden="true"></div>
+        <figcaption class="cam__caption">Him. Take thirty-one.</figcaption>
+      </figure>
+
+      <div class="story__still" aria-hidden="true">
+        <picture>
+          <source media="(max-width: 860px)" srcset="assets/couple-m.jpg">
+          <img src="assets/couple.jpg" width="1024" height="1536" alt="">
+        </picture>
+      </div>
+
+      <div class="story__scrimB" data-scrim-b aria-hidden="true"></div>
+      <div class="story__scrimC" data-scrim-c aria-hidden="true"></div>
+      <div class="story__scrimD" data-scrim-d aria-hidden="true"></div>
+
+      <div class="story__copy--b" data-sc-cue="0.36 0.66 0.2 0.2">
+        <p>This is Poza.</p>
+        <p>It lives in the camera, watches the frame, and says one short thing at a time.</p>
+      </div>
+      <p class="story__copy--c" data-sc-cue="0.885 0.945 0.25 0.2">"Half a step left. Chin down a touch."<small>Poza, to him, quietly.</small></p>
+      <p class="story__copy--d" data-sc-cue="0.965 1 0.35 0.001">That one.<small>Her, three seconds later.</small></p>
+
+      <div class="land" data-land aria-hidden="true">
+        <span class="land__bracket land__bracket--tl"></span>
+        <span class="land__bracket land__bracket--tr"></span>
+        <span class="land__bracket land__bracket--bl"></span>
+        <span class="land__bracket land__bracket--br"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · WHAT IT IS: type on navy -->
+  <section class="about" data-sc-act="flow" data-sc-drift="#0C182B" aria-labelledby="about-h">
+    <div class="sc-wrap about__grid" data-sc-in data-sc-stagger="70">
+      <h2 id="about-h" class="sc-display sc-display--lg about__title">A guide in the camera. A coach in your ear.</h2>
+      <p class="sc-lede about__lede">Pick a pose. A translucent outline of a different person in that pose floats over the live view, and your subject steps into it.</p>
+      <div class="about__body">
+        <p class="sc-body">While you frame, Poza watches the light and the background and says one short thing at a time. Half a step left. Chin down a touch. You repeat it and take the credit.</p>
+        <p class="sc-body">Poza is for iPhone and still in development. The pose library keeps growing.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · WHAT IT WATCHES: a rail -->
+  <section class="watch" data-sc-act="pan" data-sc-span="2.2" data-sc-drift="#0C1828" aria-labelledby="watch-h">
+    <div data-sc-stage class="watch__stage">
+      <div class="rail" data-sc-pan="0.05">
+        <div class="rail__lead">
+          <h2 id="watch-h" class="sc-display sc-display--lg">What Poza is watching.</h2>
+          <p class="sc-body">One thing at a time, and then it goes quiet.</p>
+        </div>
+        <article class="item" style="--i: 1">
+          <figure><img src="assets/watch-light.jpg" width="600" height="750" alt="A man on a railing, backlit by low autumn sun through trees"></figure>
+          <h3>Light.</h3>
+          <p>It knows where the sun is and tells you which way to turn.</p>
+        </article>
+        <article class="item" style="--i: 2">
+          <figure><img src="assets/watch-background.jpg" width="600" height="750" alt="A man leaning on a tiled column with a clean, soft background behind him"></figure>
+          <h3>Background.</h3>
+          <p>A lamppost growing out of a head gets called before you shoot.</p>
+        </article>
+        <article class="item" style="--i: 3">
+          <figure><img src="assets/watch-horizon.jpg" width="600" height="750" alt="A man on a beach at dusk, the sea horizon level behind him"></figure>
+          <h3>Horizon.</h3>
+          <p>A tilted frame is caught while you can still level it.</p>
+        </article>
+        <article class="item" style="--i: 4">
+          <figure><img src="assets/watch-distance.jpg" width="600" height="750" alt="A man in a suit walking a stone path, filling the middle of the frame"></figure>
+          <h3>Distance.</h3>
+          <p>The guide sets how much of the frame the subject fills. Step in or step back.</p>
+        </article>
+        <p class="rail__end" style="--i: 5">Then it lets you shoot.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · SIGN UP: the finished photo, held still, the form inside it. Holds. -->
+  <section id="join" class="close" data-sc-act="pin" data-sc-span="1.2" data-sc-drift="#070E1A" aria-labelledby="join-h">
+    <div data-sc-stage class="close__stage">
+      <picture class="close__back" aria-hidden="true">
+        <source media="(max-width: 860px)" srcset="assets/couple-bg-m.jpg">
+        <img src="assets/couple-bg.jpg" width="1600" height="1000" alt="">
+      </picture>
+      <img class="close__plate" src="assets/couple.jpg" width="1024" height="1536" alt="The finished photo: the couple on the riverside street at dusk, she is half a step ahead with a small smile, he stands just behind her shoulder">
+      <div class="close__scrim" aria-hidden="true"></div>
+      <div class="close__copy" data-sc-cue="0 1 0 0">
+        <h2 id="join-h" class="sc-display sc-display--lg">Never hear "you had one job" again.</h2>
+        <p class="sc-body">Poza is for iPhone and still in development. Leave an email and you get the first build.</p>
+        <form class="join" data-waitlist action="#" method="post" novalidate>
+          <label class="sr-only" for="email">Email</label>
+          <input id="email" type="email" name="email" placeholder="you@example.com" required autocomplete="email" inputmode="email">
+          <button class="btn" type="submit" data-sc-magnet="0.22">Get early access</button>
+          <p class="join__done" role="status" hidden>You're on the list.</p>
+        </form>
+      </div>
+      <footer class="foot">
+        <span class="foot__mark">Poza</span>
+        <span>iPhone only. In development.</span>
+      </footer>
+    </div>
+  </section>
+
+</main>
+
+<script src="scrollcraft.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+  ScrollCraft.mount(document.body);
+
+  (function () {
+    var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    /* hero planes follow the pointer on desktop. The engine writes the scroll
+       parallax on the inner element; the pointer offset lives on the wrapper. */
+    var planeRoot = document.querySelector('[data-planes]');
+    if (planeRoot && fine && !reduce) {
+      var planes = Array.prototype.map.call(planeRoot.querySelectorAll('[data-plane]'), function (el) {
+        return { el: el, k: parseFloat(el.getAttribute('data-plane')) || 0, x: 0, y: 0, tx: 0, ty: 0 };
+      });
+      addEventListener('pointermove', function (e) {
+        if (e.pointerType !== 'mouse') return;
+        var nx = (e.clientX / innerWidth) * 2 - 1;
+        var ny = (e.clientY / innerHeight) * 2 - 1;
+        for (var i = 0; i < planes.length; i++) {
+          planes[i].tx = -nx * planes[i].k * 11;
+          planes[i].ty = -ny * planes[i].k * 7;
+        }
+      }, { passive: true });
+      (function planeTick() {
+        if (scrollY < innerHeight * 1.2) {
+          for (var i = 0; i < planes.length; i++) {
+            var P = planes[i];
+            P.x += (P.tx - P.x) * 0.07; P.y += (P.ty - P.y) * 0.07;
+            P.el.style.transform = 'translate3d(' + P.x.toFixed(2) + 'px,' + P.y.toFixed(2) + 'px,0)';
+          }
+        }
+        requestAnimationFrame(planeTick);
+      })();
+    }
+
+    /* "See it work" scrolls into the story act rather than to the top of the page */
+    var see = document.querySelector('[data-see-it]');
+    if (see) see.addEventListener('click', function (e) {
+      e.preventDefault();
+      var story = document.getElementById('story');
+      var top = story.getBoundingClientRect().top + scrollY;
+      scrollTo({ top: top + innerHeight * 1.6, behavior: reduce ? 'auto' : 'smooth' });
+    });
+
+    /* waitlist form: no endpoint yet */
+    var form = document.querySelector('form[data-waitlist]');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var input = form.querySelector('input[type="email"]');
+        var ok = input.value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value);
+        if (!ok) { input.focus(); input.setAttribute('aria-invalid', 'true'); return; }
+        input.removeAttribute('aria-invalid');
+        /* TODO: POST to a real waitlist endpoint. */
+        form.querySelector('.join__done').hidden = false;
+        form.querySelector('button').disabled = true;
+        input.disabled = true;
+      });
+    }
+  })();
+</script>
+
+<script type="module">
+  /* ---- the story act ----------------------------------------------------------
+     One GSAP ScrollTrigger timeline drives everything: the hero layer, the DOM
+     camera window, the tunnel clip's playhead, the Three.js camera, Poza, the
+     glass and its shards, the landing and the finished photo. The scrollcraft
+     engine pins the stage; the timeline maps the same scroll range, so scroll
+     is reversible by construction. */
+  import * as THREE from 'three';
+
+  const stage = document.querySelector('[data-story]');
+  const section = stage.closest('[data-sc-act]');
+  const canvas = stage.querySelector('.story__gl');
+  const camEl = stage.querySelector('[data-cam]');
+  const heroLayer = stage.querySelector('[data-hero-layer]');
+  const tunnelEl = stage.querySelector('[data-tunnel]');
+  const scrimB = stage.querySelector('[data-scrim-b]');
+  const scrimC = stage.querySelector('[data-scrim-c]');
+  const scrimD = stage.querySelector('[data-scrim-d]');
+  const brackets = Array.from(stage.querySelectorAll('.land__bracket'));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mobile = matchMedia('(max-width: 860px)').matches;
+
+  function webgl() {
+    try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }
+    catch (e) { return false; }
+  }
+  if (reduce || !webgl() || !window.gsap || !window.ScrollTrigger) {
+    stage.classList.add('is-still');
+    stage.setAttribute('data-sc-verify-state', 'still');
+    stage.setAttribute('data-sc-verify-hold', 'true');
+  } else {
+    gsap.registerPlugin(ScrollTrigger);
+
+    // ---- renderer, scene, camera ----------------------------------------------
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    const NAVY = new THREE.Color('#0A1424');
+    const COBALT = new THREE.Color('#1C4E8C');
+    scene.fog = new THREE.Fog(NAVY.clone(), 4, mobile ? 60 : 90);
+    const FOV = mobile ? 66 : 52;
+    const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 400);
+    const lookAt = new THREE.Vector3(0, 0, -10);
+    scene.add(new THREE.AmbientLight('#9dbfe8', 1.1));
+    const keyLight = new THREE.DirectionalLight('#ffffff', 1.8); keyLight.position.set(3, 6, 5); scene.add(keyLight);
+
+    // ---- the tunnel geometry: rings, arches, focus brackets, graphic circles ---
+    const N = mobile ? 14 : 26, STEP = 6, Z0 = -10;
+    const zLastRing = Z0 - (N - 1) * STEP;
+    const zGlass = zLastRing - 9;
+    const D = 10;                                   // final camera distance from the scene plate
+    const zLand = zGlass - 6 - D;                   // the camera ends 6 units past the glass
+    const white = new THREE.MeshBasicMaterial({ color: '#E8EFF8' });
+    const tunnel = new THREE.Group(); scene.add(tunnel);
+    const ringGeo = new THREE.TorusGeometry(4.4, 0.055, 10, 72);
+    const archGeo = new THREE.TorusGeometry(4.8, 0.07, 10, 48, Math.PI);
+    const legGeo = new THREE.BoxGeometry(0.14, 5.4, 0.14);
+    const barH = new THREE.BoxGeometry(1.7, 0.09, 0.09);
+    const barV = new THREE.BoxGeometry(0.09, 1.7, 0.09);
+    const circGeo = new THREE.TorusGeometry(0.75, 0.03, 8, 40);
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    for (let i = 0; i < N; i++) {
+      const z = Z0 - i * STEP, kind = i % 3;
+      if (kind === 0) { const m = new THREE.Mesh(ringGeo, white); m.position.z = z; tunnel.add(m); }
+      else if (kind === 1) {
+        const a = new THREE.Mesh(archGeo, white); a.position.z = z; tunnel.add(a);
+        for (const sx of [-1, 1]) { const l = new THREE.Mesh(legGeo, white); l.position.set(sx * 4.8, -2.7, z); tunnel.add(l); }
+      } else {
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+          const h = new THREE.Mesh(barH, white); h.position.set(sx * (4.2 - 0.85), sy * 4.2, z); tunnel.add(h);
+          const v = new THREE.Mesh(barV, white); v.position.set(sx * 4.2, sy * (4.2 - 0.85), z); tunnel.add(v);
+        }
+      }
+      if (i % 2 === 0) {
+        const c = new THREE.Mesh(circGeo, white);
+        c.position.set((rnd() < 0.5 ? -1 : 1) * (5.6 + rnd() * 2.4), (rnd() - 0.5) * 7, z - 3);
+        c.scale.setScalar(0.6 + rnd() * 1.1);
+        tunnel.add(c);
+      }
+    }
+
+    // ---- textured planes: Poza, the scene, the finished photo -------------------
+    const loader = new THREE.TextureLoader();
+    function plane(src, h, opacity, w, opaque) {
+      const mat = opaque
+        ? new THREE.MeshBasicMaterial({ toneMapped: false, fog: false })
+        : new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.03, depthWrite: false, opacity, toneMapped: false, fog: false });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w || h, h), mat);
+      loader.load(src, t => {
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        if (!w) { const a = t.image.width / t.image.height; mesh.geometry.dispose(); mesh.geometry = new THREE.PlaneGeometry(h * a, h); }
+        mat.map = t; mat.needsUpdate = true;
+      });
+      return mesh;
+    }
+    const PH = 1.7;                                  // Poza's height in scene units
+    const pozaFloat = plane('assets/poza-float.png', PH, 0); pozaFloat.position.set(0.3, 0.2, -6); scene.add(pozaFloat);
+    const pozaWhisper = plane('assets/poza-whisper.png', PH, 0); scene.add(pozaWhisper);
+    // the scene he is standing in, sharp portrait plate over a blurred wide plate
+    const viewH = 2 * D * Math.tan(FOV / 2 * Math.PI / 180);
+    const plateH = viewH * 1.04, plateW = plateH * (1024 / 1536);
+    const scenePlate = plane(mobile ? 'assets/him-m.jpg' : 'assets/him.jpg', plateH, 1, plateW, true); scenePlate.position.set(0, 0, zLand); scene.add(scenePlate);
+    const bgH = viewH * 1.2, bgW = bgH * 1.6;
+    const sceneBg = plane('assets/him-bg.jpg', bgH, 1, bgW, true); sceneBg.position.set(0, 0, zLand - 2); scene.add(sceneBg);
+    const couplePlate = plane(mobile ? 'assets/couple-m.jpg' : 'assets/couple.jpg', plateH, 0, plateW); couplePlate.position.set(0, 0, zLand + 0.05); scene.add(couplePlate);
+    const coupleBg = plane('assets/couple-bg.jpg', bgH, 0, bgW); coupleBg.position.set(0, 0, zLand - 1.95); scene.add(coupleBg);
+    // where Poza lands: beside him, feet on the cobbles
+    const feetY = -plateH * 0.42;
+    const landX = mobile ? -plateW * 0.3 : -plateW * 0.38;
+    pozaWhisper.position.set(landX, feetY + PH / 2 + 3, zLand + 0.6);
+    // contact shadow: a soft ellipse at Poza's feet
+    const sc = document.createElement('canvas'); sc.width = sc.height = 256;
+    const sctx = sc.getContext('2d');
+    const g = sctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+    g.addColorStop(0, 'rgba(2,6,14,0.8)'); g.addColorStop(0.55, 'rgba(2,6,14,0.32)'); g.addColorStop(1, 'rgba(2,6,14,0)');
+    sctx.fillStyle = g; sctx.fillRect(0, 0, 256, 256);
+    const shadowMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, opacity: 0, depthWrite: false, fog: false });
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(PH * 0.9, PH * 0.28), shadowMat);
+    shadow.position.set(landX, feetY + 0.02, zLand + 0.62); shadow.scale.setScalar(0.3); scene.add(shadow);
+
+    // ---- the glass: the phone screen, its cracks, and the shards ---------------
+    const glassMat = mobile
+      ? new THREE.MeshStandardMaterial({ color: '#6F9BD1', transparent: true, opacity: 0.2, roughness: 0.2, metalness: 0.1, side: THREE.DoubleSide })
+      : new THREE.MeshPhysicalMaterial({ color: '#D6E6FA', transmission: 0.92, roughness: 0.1, thickness: 0.6, ior: 1.5, transparent: true, side: THREE.DoubleSide });
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(6, 10.6), glassMat);
+    glass.position.set(0, 0, zGlass); scene.add(glass);
+    const cpts = [];
+    const SP = 16;
+    for (let i = 0; i < SP; i++) {
+      const a = (i / SP) * Math.PI * 2 + rnd() * 0.2;
+      let px = 0, py = 0;
+      for (let j = 1; j <= 4; j++) {
+        const r = j * 1.3 + rnd() * 0.4, aa = a + (rnd() - 0.5) * 0.25;
+        const nx = Math.cos(aa) * r, ny = Math.sin(aa) * r;
+        cpts.push(px, py, 0, nx, ny, 0); px = nx; py = ny;
+      }
+    }
+    for (const r of [1.1, 2.3, 3.7]) {
+      let px = null, py = null;
+      for (let i = 0; i <= 28; i++) {
+        const a = (i / 28) * Math.PI * 2, rr = r + (rnd() - 0.5) * 0.35;
+        const nx = Math.cos(a) * rr, ny = Math.sin(a) * rr;
+        if (px !== null) cpts.push(px, py, 0, nx, ny, 0);
+        px = nx; py = ny;
+      }
+    }
+    const crackGeo = new THREE.BufferGeometry();
+    crackGeo.setAttribute('position', new THREE.Float32BufferAttribute(cpts, 3));
+    const crackMat = new THREE.LineBasicMaterial({ color: '#EAF2FF', transparent: true, opacity: 0 });
+    const cracks = new THREE.LineSegments(crackGeo, crackMat); cracks.position.set(0, 0, zGlass + 0.02); scene.add(cracks);
+    const SH = mobile ? 14 : 36;
+    const shards = [];
+    for (let i = 0; i < SH; i++) {
+      const s = new THREE.Shape();
+      const n = 3 + Math.floor(rnd() * 2), rad = 0.25 + rnd() * 0.75;
+      for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2 + rnd() * 0.6, r = rad * (0.6 + rnd() * 0.6); k ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+      const geo = new THREE.ExtrudeGeometry(s, { depth: 0.05 + rnd() * 0.1, bevelEnabled: false });
+      const m = new THREE.Mesh(geo, glassMat);
+      const a = rnd() * Math.PI * 2, d = 0.2 + rnd() * 2.6;
+      const sx = Math.cos(a) * d, sy = Math.sin(a) * d;
+      m.position.set(sx, sy, zGlass);
+      m.rotation.set(rnd() * 0.3, rnd() * 0.3, rnd() * Math.PI);
+      m.userData = {
+        s: new THREE.Vector3(sx, sy, zGlass),
+        e: new THREE.Vector3(sx * (2.4 + rnd() * 1.6), sy * (2.4 + rnd() * 1.6) + 0.3, zGlass - 2 - rnd() * 8),
+        r0: m.rotation.clone(),
+        r1: new THREE.Euler(m.rotation.x + (rnd() - 0.5) * 6, m.rotation.y + (rnd() - 0.5) * 6, m.rotation.z + (rnd() - 0.5) * 4)
+      };
+      m.visible = false; scene.add(m); shards.push(m);
+    }
+
+    // ---- the tunnel clip: scrubbed by the same timeline -------------------------
+    const clip = { ready: false, dur: 5, target: 0, cur: 0, primed: false };
+    fetch(mobile ? 'assets/tunnel-m.mp4' : 'assets/tunnel.mp4').then(r => r.blob()).then(b => {
+      tunnelEl.src = URL.createObjectURL(b);
+      tunnelEl.addEventListener('loadedmetadata', () => { clip.ready = true; clip.dur = tunnelEl.duration || 5; prime(); }, { once: true });
+      tunnelEl.load();
+    }).catch(() => {});
+    function prime() {
+      if (clip.primed || !clip.ready) return;
+      const p = tunnelEl.play();
+      if (p && p.then) p.then(() => { tunnelEl.pause(); clip.primed = true; }).catch(() => {});
+    }
+    for (const ev of ['touchend', 'pointerdown', 'scroll']) addEventListener(ev, prime, { passive: true, once: false });
+
+    // ---- the state the timeline writes and the render loop reads --------------
+    const S = {
+      camZ: 0, camY: 0, lookY: 0, lookZ: -10,
+      pfZ: -6, pfY: 0.2, pfX: 0.3, pfRot: 0, pfOp: 0,
+      pwY: feetY + PH / 2 + 3, pwOp: 0, pwSX: 1, pwSY: 1,
+      shadowOp: 0, shadowS: 0.3,
+      glassOp: 1, crackOp: 0, shardT: 0, fogMix: 0,
+      coupleOp: 0, clipT: 0, progress: 0
+    };
+    const tmpC = new THREE.Color();
+    function apply() {
+      camera.position.set(0, S.camY, S.camZ);
+      lookAt.set(0, S.lookY, S.lookZ); camera.lookAt(lookAt);
+      pozaFloat.position.set(S.pfX, S.pfY, S.pfZ); pozaFloat.rotation.z = S.pfRot; pozaFloat.material.opacity = S.pfOp; pozaFloat.visible = S.pfOp > 0.001;
+      pozaWhisper.position.y = S.pwY; pozaWhisper.scale.set(S.pwSX, S.pwSY, 1); pozaWhisper.material.opacity = S.pwOp; pozaWhisper.visible = S.pwOp > 0.001;
+      shadowMat.opacity = S.shadowOp; shadow.scale.setScalar(S.shadowS); shadow.visible = S.shadowOp > 0.001;
+      glassMat.opacity = S.glassOp; crackMat.opacity = S.crackOp;
+      couplePlate.material.opacity = S.coupleOp; coupleBg.material.opacity = S.coupleOp;
+      couplePlate.visible = coupleBg.visible = S.coupleOp > 0.001;
+      const t = S.shardT, e = 1 - Math.pow(1 - t, 3);
+      for (const m of shards) {
+        m.visible = t > 0.001 && t < 0.999;
+        if (!m.visible) continue;
+        m.position.lerpVectors(m.userData.s, m.userData.e, e);
+        m.rotation.set(
+          m.userData.r0.x + (m.userData.r1.x - m.userData.r0.x) * e,
+          m.userData.r0.y + (m.userData.r1.y - m.userData.r0.y) * e,
+          m.userData.r0.z + (m.userData.r1.z - m.userData.r0.z) * e);
+      }
+      glass.visible = S.glassOp > 0.02 && S.camZ > zGlass + 0.3;
+      cracks.visible = S.crackOp > 0.01 && S.camZ > zGlass + 0.3;
+      tunnel.visible = S.progress >= 0.27 && S.camZ > zGlass + 2;
+      sceneBg.visible = S.camZ < zGlass + 0.5;
+      tmpC.copy(NAVY).lerp(COBALT, S.fogMix); scene.fog.color.copy(tmpC);
+      // clip playhead: lerped toward the timeline's target so the wheel reads as a glide
+      if (clip.ready) {
+        clip.target = S.clipT * Math.max(clip.dur - 0.05, 0.1);
+        clip.cur += (clip.target - clip.cur) * 0.2;
+        if (Math.abs(tunnelEl.currentTime - clip.cur) > 0.012 && !tunnelEl.seeking) tunnelEl.currentTime = clip.cur;
+      }
+    }
+
+    // ---- the DOM camera window: corner to full frame --------------------------
+    function cover() {
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      const w = camEl.offsetWidth, h = camEl.offsetHeight;
+      const cx = camEl.offsetLeft + w / 2, cy = camEl.offsetTop + h / 2;
+      return { x: sw / 2 - cx, y: sh / 2 - cy, scale: Math.max(sw / w, sh / h) * 1.04 };
+    }
+    // ---- the brackets close on the finished photo -------------------------------
+    function placeBrackets() {
+      const camF = camera.clone();
+      camF.position.set(0, 0, zLand + D); camF.lookAt(0, 0, zLand); camF.aspect = camera.aspect; camF.updateProjectionMatrix(); camF.updateMatrixWorld();
+      const sw = stage.clientWidth, sh = stage.clientHeight;
+      const proj = (x, y) => { const v = new THREE.Vector3(x, y, zLand).project(camF); return { x: (v.x + 1) / 2 * sw, y: (1 - v.y) / 2 * sh }; };
+      const inset = 0.06, size = 26;
+      const tl = proj(-plateW / 2 * 0.9, plateH / 2 * 0.9), br = proj(plateW / 2 * 0.9, -plateH / 2 * 0.9);
+      const box = { l: Math.max(tl.x, sw * 0.03), t: Math.max(tl.y, sh * 0.03), r: Math.min(br.x, sw * 0.97), b: Math.min(br.y, sh * 0.97) };
+      const origin = [
+        { x: sw * inset, y: sh * inset }, { x: sw * (1 - inset) - size, y: sh * inset },
+        { x: sw * inset, y: sh * (1 - inset) - size }, { x: sw * (1 - inset) - size, y: sh * (1 - inset) - size }
+      ];
+      const target = [
+        { x: box.l, y: box.t }, { x: box.r - size, y: box.t },
+        { x: box.l, y: box.b - size }, { x: box.r - size, y: box.b - size }
+      ];
+      brackets.forEach((b, i) => { b.dataset.tx = (target[i].x - origin[i].x).toFixed(1); b.dataset.ty = (target[i].y - origin[i].y).toFixed(1); });
+    }
+
+    // ---- the timeline ----------------------------------------------------------
+    const zEnd = zGlass + 3.5;
+    const tl = gsap.timeline({
+      defaults: { ease: 'none' },
+      scrollTrigger: {
+        trigger: section, start: 'top top', end: 'bottom bottom', scrub: 0.6,
+        invalidateOnRefresh: true,
+        onRefresh: placeBrackets,
+        onUpdate: self => { S.progress = self.progress; }
+      }
+    });
+    // 0.00 - 0.10  her verdict holds. 0.10 - 0.24  the corner window zooms and levels
+    tl.to(camEl, { x: () => cover().x, y: () => cover().y, scale: () => cover().scale, rotateY: 0, rotateX: 0, rotateZ: 0, ease: 'power2.inOut', duration: 0.14 }, 0.10);
+    tl.to(heroLayer, { autoAlpha: 0, duration: 0.08, ease: 'power1.in' }, 0.12);
+    tl.to(camEl.querySelectorAll('.cam__caption, .cam__band, .cam__bracket'), { autoAlpha: 0, duration: 0.05 }, 0.11);
+    // 0.24 - 0.30  the window opens into the void; Poza floats in
+    tl.to(camEl, { autoAlpha: 0, duration: 0.06, ease: 'power1.in' }, 0.24);
+    tl.to(S, { pfOp: 1, duration: 0.06 }, 0.26);
+    tl.to(S, { pfY: 0.6, pfX: -0.2, pfRot: 0.22, duration: 0.1, ease: 'sine.inOut' }, 0.24);
+    // 0.30 - 0.74  the tunnel, accelerating all the way through; the clip plate scrubs underneath
+    tl.to(tunnelEl, { opacity: 1, duration: 0.05 }, 0.30);
+    tl.to(scrimB, { opacity: 1, duration: 0.05 }, 0.34);
+    tl.to(scrimB, { opacity: 0, duration: 0.05 }, 0.62);
+    tl.to(S, { fogMix: 1, duration: 0.1, ease: 'power1.inOut' }, 0.30);
+    tl.to(S, { clipT: 1, duration: 0.44, ease: 'power1.in' }, 0.30);
+    tl.to(S, { camZ: zEnd, duration: 0.44, ease: 'power1.in' }, 0.30);
+    tl.to(S, { lookZ: zEnd - 10, duration: 0.44, ease: 'power1.in' }, 0.30);
+    tl.to(S, { pfZ: zGlass + 0.4, duration: 0.44, ease: 'power1.in' }, 0.30);
+    tl.to(S, { pfRot: -Math.PI * 4 + 0.22, duration: 0.44, ease: 'power1.in' }, 0.30);
+    tl.to(S, { pfX: -0.9, pfY: -0.3, duration: 0.15, ease: 'sine.inOut' }, 0.34);
+    tl.to(S, { pfX: 0.8, pfY: 0.5, duration: 0.16, ease: 'sine.inOut' }, 0.49);
+    tl.to(S, { pfX: 0, pfY: 0.1, duration: 0.09, ease: 'sine.inOut' }, 0.65);
+    tl.to(tunnelEl, { opacity: 0, duration: 0.05 }, 0.745);
+    // 0.74 - 0.86  through the glass: cracks, shards, the camera passes the fragments and settles
+    tl.to(S, { crackOp: 1, duration: 0.01 }, 0.755);
+    tl.to(S, { glassOp: 0, duration: 0.035 }, 0.765);
+    tl.to(S, { shardT: 1, duration: 0.2 }, 0.762);
+    tl.to(S, { pfZ: zLand + 0.8, pfY: 1.2, pfRot: -Math.PI * 4, duration: 0.12, ease: 'power1.out' }, 0.76);
+    tl.to(S, { camZ: zLand + D, duration: 0.13, ease: 'power2.out' }, 0.765);
+    tl.to(S, { lookZ: zLand, duration: 0.13, ease: 'power2.out' }, 0.765);
+    tl.to(S, { fogMix: 0, duration: 0.08, ease: 'power1.inOut' }, 0.8);
+    tl.to(S, { crackOp: 0, duration: 0.03 }, 0.79);
+    // 0.84 - 0.93  the landing beside him: feet first, knees, settle, contact shadow, the whisper
+    tl.to(S, { pfX: landX, pfY: feetY + PH / 2 + 3, duration: 0.06, ease: 'power1.inOut' }, 0.80);
+    tl.to(S, { pfOp: 0, duration: 0.03 }, 0.845);
+    tl.to(S, { pwOp: 1, duration: 0.03 }, 0.845);
+    tl.to(S, { pwY: feetY + PH / 2, duration: 0.05, ease: 'power2.in' }, 0.85);
+    tl.to(S, { shadowOp: 0.85, shadowS: 1, duration: 0.05, ease: 'power2.in' }, 0.85);
+    tl.to(S, { pwSY: 0.93, pwSX: 1.06, duration: 0.012, ease: 'power1.out' }, 0.9);
+    tl.to(S, { pwSY: 1, pwSX: 1, duration: 0.025, ease: 'back.out(2)' }, 0.912);
+    tl.to(scrimC, { opacity: 1, duration: 0.03 }, 0.88);
+    tl.to(scrimC, { opacity: 0, duration: 0.03 }, 0.94);
+    // 0.94 - 0.975 the finished photo replaces the take; Poza steps out; brackets close; her verdict
+    tl.to(S, { coupleOp: 1, duration: 0.03 }, 0.94);
+    tl.to(S, { pwOp: 0, shadowOp: 0, duration: 0.025 }, 0.94);
+    tl.to(scrimD, { opacity: 1, duration: 0.03 }, 0.95);
+    brackets.forEach(b => {
+      tl.to(b, { opacity: 1, x: () => parseFloat(b.dataset.tx), y: () => parseFloat(b.dataset.ty), duration: 0.03, ease: 'power2.out' }, 0.95);
+    });
+    // 0.975 - 1.00 the readable pause: nothing moves
+    tl.to(S, { progress: 1, duration: 0.025 }, 0.975);
+
+    // ---- sizing, rendering, reporting -----------------------------------------
+    function resize() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    resize();
+    addEventListener('resize', () => { resize(); ScrollTrigger.refresh(); });
+    addEventListener('load', () => ScrollTrigger.refresh());
+
+    let near = false, lastState = '';
+    const io = new IntersectionObserver(es => { es.forEach(e => { near = e.isIntersecting; }); }, { rootMargin: '150% 0px' });
+    io.observe(section);
+    const phase = p => p < 0.10 ? 'hero' : p < 0.24 ? 'zoom' : p < 0.30 ? 'void' : p < 0.74 ? 'tunnel' : p < 0.845 ? 'glass' : p < 0.94 ? 'land' : p < 0.975 ? 'photo' : 'hold';
+    function frame() {
+      if (near) {
+        apply();
+        renderer.render(scene, camera);
+        const p = S.progress;
+        const st = phase(p) + ' cz' + S.camZ.toFixed(1) + ' pr' + S.pfRot.toFixed(2) + ' py' + S.pwY.toFixed(2) + ' sh' + S.shardT.toFixed(2) + ' co' + S.coupleOp.toFixed(2) + ' cam' + (gsap.getProperty(camEl, 'scale') || 1).toFixed(2) + ' clip' + (clip.ready ? clip.cur.toFixed(2) : 'x');
+        if (st !== lastState) { lastState = st; stage.setAttribute('data-sc-verify-state', st); }
+        const hold = p >= 0.975;
+        if (hold !== (stage.getAttribute('data-sc-verify-hold') === 'true')) stage.setAttribute('data-sc-verify-hold', hold ? 'true' : 'false');
+      }
+      requestAnimationFrame(frame);
+    }
+    frame();
+  }
+</script>
+</body>
+</html>
