@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poza: the pose garden</title>
+<meta name="description" content="She blames you for the photo. Poza floats a guide over the iPhone camera and talks you through the shot. Walk the garden, then get early access.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Poza: the pose garden">
+<meta property="og:description" content="A guide over the live camera, a coach in your ear. Never hear 'you had one job' again.">
+<meta property="og:image" content="assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Geist:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="scrollcraft.css">
+<style>
+  :root {
+    --sc-canvas:     #EEF0EF;
+    --sc-surface:    #FBFBF9;
+    --sc-ink:        #101C32;
+    --sc-ink-soft:   #4A5A72;
+    --sc-accent:     #2A6DB0;
+    --sc-accent-ink: #FFFFFF;
+    --sc-font-display: "Archivo", system-ui, sans-serif;
+    --sc-font-text:    "Geist", system-ui, sans-serif;
+    --sc-shadow-color: 40 12% 30%;
+    --sc-e1: 0 1px 2px hsl(var(--sc-shadow-color) / 0.10), 0 2px 6px -1px hsl(var(--sc-shadow-color) / 0.08);
+    --sc-e2: 0 2px 4px hsl(var(--sc-shadow-color) / 0.08), 0 10px 22px -6px hsl(var(--sc-shadow-color) / 0.18);
+    --sc-e3: 0 4px 8px hsl(var(--sc-shadow-color) / 0.08), 0 22px 44px -10px hsl(var(--sc-shadow-color) / 0.22), 0 50px 90px -30px hsl(var(--sc-shadow-color) / 0.20);
+    --sc-edge: inset 0 1px 0 rgba(255,255,255,0.9);
+    --sc-r-sm: 6px; --sc-r-md: 10px; --sc-r-lg: 16px;
+    --bar: 52px;
+  }
+  body { color: var(--sc-ink); background: var(--sc-canvas); }
+  .sc-grain { opacity: 0.03; z-index: 3; }
+  .sc-display { font-weight: 600; }
+  .sc-body { color: var(--sc-ink-soft); line-height: 1.6; }
+
+  /* ------------------------------------------------------------- bar -- */
+  .bar {
+    position: fixed; inset: 0 0 auto 0; height: var(--bar); z-index: var(--sc-z-chrome);
+    display: flex; align-items: center; gap: var(--sc-5);
+    padding-inline: var(--sc-gutter);
+    background: color-mix(in oklab, var(--sc-canvas) 78%, transparent);
+    border-bottom: 1px solid var(--sc-hairline);
+  }
+  .bar__mark { font-family: var(--sc-font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: -0.03em; text-decoration: none; color: var(--sc-ink); line-height: 1; }
+  .bar__chapters { display: flex; gap: var(--sc-5); margin: 0; padding: 0; list-style: none; }
+  .bar__chapters a {
+    font-size: var(--sc-t-sm); color: var(--sc-ink-soft); text-decoration: none; padding-block: 0.3rem;
+    border-bottom: 1px solid transparent; transition: color 140ms var(--sc-ease-out), border-color 140ms var(--sc-ease-out);
+  }
+  .bar__chapters a:hover { color: var(--sc-ink); }
+  .bar__chapters a.is-here { color: var(--sc-ink); border-bottom-color: var(--sc-accent); }
+  .bar__cta { margin-left: auto; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+    font-family: var(--sc-font-text); font-weight: 600; font-size: var(--sc-t-sm);
+    padding: 0.72rem 1.15rem; border-radius: var(--sc-r-sm); text-decoration: none; cursor: pointer;
+    background: var(--sc-accent); color: var(--sc-accent-ink); border: 0;
+    box-shadow: var(--sc-e1), var(--sc-edge);
+    transition: transform 140ms var(--sc-ease-out), background-color 140ms var(--sc-ease-out), box-shadow 140ms var(--sc-ease-out);
+  }
+  .btn:hover { background: #2461A0; box-shadow: var(--sc-e2), var(--sc-edge); }
+  .btn:active { transform: translateY(1px) scale(0.985); }
+  .btn--sm { padding: 0.5rem 0.9rem; }
+  .link { font-weight: 500; color: var(--sc-ink); text-decoration: underline; text-underline-offset: 0.26em; text-decoration-color: color-mix(in oklab, var(--sc-accent) 55%, transparent); transition: text-decoration-color 140ms var(--sc-ease-out); }
+  .link:hover { text-decoration-color: var(--sc-accent); }
+
+  /* ----------------------------------------------------------- world -- */
+  .world { position: fixed; inset: 0; z-index: 0; background: var(--sc-canvas); }
+  .world canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 900ms var(--sc-ease-out); }
+  .world.is-ready canvas { opacity: 1; }
+  .track { position: relative; z-index: 1; pointer-events: none; }
+  .track section { position: relative; }
+  .track .anchor { position: absolute; left: 0; top: 50%; width: 1px; height: 1px; }
+  .track section:last-child .anchor { top: 88%; }
+
+  /* the fixed copy layer: nothing here covers the artwork; every block sits beside it or below it */
+  .copy { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  .copy > * { position: absolute; opacity: 0; transform: translate3d(0, 10px, 0); will-change: opacity, transform; }
+  .copy > .is-on { pointer-events: auto; }
+
+  .hero { left: var(--sc-gutter); top: calc(var(--bar) + clamp(2rem, 9vh, 6rem)); max-width: 34rem; }
+  .hero__h { font-size: clamp(2.6rem, 1.4rem + 3.8vw, 5rem); line-height: 0.98; letter-spacing: -0.035em; }
+  .hero__p { margin-top: var(--sc-5); max-width: 28rem; font-size: var(--sc-t-lg); line-height: 1.45; text-wrap: pretty; }
+  .hero__row { margin-top: var(--sc-6); display: flex; align-items: center; gap: var(--sc-5); flex-wrap: wrap; }
+  .hero__note { margin-top: var(--sc-7); max-width: 24rem; font-size: var(--sc-t-sm); color: var(--sc-ink-soft); }
+
+  .cap {
+    bottom: clamp(1.5rem, 7vh, 4.5rem); max-width: 23rem;
+    background: var(--sc-surface); border-radius: var(--sc-r-md); padding: 1.25rem 1.5rem 1.35rem;
+    box-shadow: var(--sc-e2), var(--sc-edge);
+  }
+  .cap--left { left: var(--sc-gutter); }
+  .cap--right { right: var(--sc-gutter); }
+  .cap h2 { font-size: var(--sc-t-xl); letter-spacing: var(--sc-track-snug); line-height: 1.05; }
+  .cap p { margin: 0.6rem 0 0; color: var(--sc-ink-soft); text-wrap: pretty; }
+  .cap .verdict { font-family: var(--sc-font-display); font-weight: 600; font-size: var(--sc-t-2xl); letter-spacing: var(--sc-track-snug); line-height: 1; color: var(--sc-ink); margin-top: 0.8rem; }
+  .cap__next { display: inline-block; margin-top: 0.85rem; font-size: var(--sc-t-sm); }
+
+  .invite {
+    left: var(--sc-gutter); bottom: clamp(1.25rem, 6vh, 4rem); width: min(30rem, calc(100vw - 2 * var(--sc-gutter)));
+    background: var(--sc-surface); border-radius: var(--sc-r-lg); padding: clamp(1.4rem, 3.5vw, 2.4rem);
+    box-shadow: var(--sc-e3), var(--sc-edge);
+  }
+  .invite h2 { font-size: var(--sc-t-2xl); letter-spacing: var(--sc-track-snug); }
+  .invite .sc-body { margin-top: var(--sc-3); }
+  .form { margin-top: var(--sc-5); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sc-3); }
+  .form input { min-width: 0; padding: 0.72rem 0.9rem; border-radius: var(--sc-r-sm); border: 1px solid var(--sc-hairline-strong); background: #fff; color: var(--sc-ink); transition: border-color 140ms var(--sc-ease-out), box-shadow 140ms var(--sc-ease-out); }
+  .form input:focus { outline: none; border-color: var(--sc-accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--sc-accent) 22%, transparent); }
+  .form__note { margin: var(--sc-3) 0 0; font-size: var(--sc-t-xs); color: var(--sc-ink-soft); min-height: 1.2em; }
+  .form__ok { margin: var(--sc-5) 0 0; padding: 0.9rem 1rem; border-radius: var(--sc-r-sm); background: color-mix(in oklab, var(--sc-accent) 12%, #fff); color: var(--sc-ink); font-weight: 500; }
+  .invite__foot { margin-top: var(--sc-5); padding-top: var(--sc-4); border-top: 1px solid var(--sc-hairline); display: flex; flex-wrap: wrap; gap: var(--sc-3) var(--sc-5); font-size: var(--sc-t-xs); color: var(--sc-ink-soft); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* ---------------------------------------------- stills: the fallback -- */
+  .stills { display: none; position: relative; z-index: 1; padding-top: var(--bar); }
+  .still { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sc-6); align-items: center; padding: var(--sc-8) var(--sc-gutter); max-width: var(--sc-maxw); margin-inline: auto; }
+  .still img { width: 100%; height: auto; border-radius: var(--sc-r-md); box-shadow: var(--sc-e2); }
+  .still:nth-child(even) img { order: 2; }
+  .still h2 { font-size: var(--sc-t-2xl); letter-spacing: var(--sc-track-snug); }
+  .still p { margin-top: var(--sc-4); }
+  .still .invite { position: static; translate: none; width: auto; margin-top: var(--sc-5); opacity: 1; transform: none; }
+  body.is-still .world, body.is-still .track, body.is-still .copy { display: none; }
+  body.is-still .stills { display: block; }
+  body.is-still .stills .hero { position: static; opacity: 1; transform: none; padding: clamp(3rem, 10vh, 7rem) var(--sc-gutter) 0; max-width: var(--sc-maxw); margin-inline: auto; }
+
+  @media (max-width: 860px) {
+    .bar { gap: var(--sc-4); }
+    .bar__chapters { gap: var(--sc-4); }
+    .hero { max-width: none; right: var(--sc-gutter); top: calc(var(--bar) + 1.5rem); }
+    .hero__note { display: none; }
+    .cap--left, .cap--right { left: var(--sc-gutter); right: var(--sc-gutter); max-width: none; bottom: 1.25rem; padding: 1rem 1.15rem 1.1rem; }
+    .invite { width: calc(100vw - 2 * var(--sc-gutter)); bottom: 1rem; padding: 1.25rem; max-height: calc(100svh - var(--bar) - 2rem); overflow: auto; }
+    .invite h2 { font-size: var(--sc-t-xl); }
+    .form { grid-template-columns: 1fr; }
+    .still { grid-template-columns: 1fr; }
+    .still:nth-child(even) img { order: 0; }
+  }
+  @media (max-width: 560px) { .bar__chapters { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .copy > *, .world canvas, .bar__chapters a { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sc-grain" aria-hidden="true"></div>
+
+<header class="bar">
+  <a class="bar__mark" href="#top" aria-label="Poza">poza</a>
+  <ul class="bar__chapters" aria-label="Chapters">
+    <li><a href="#ch1" data-ch="1">The verdict</a></li>
+    <li><a href="#ch2" data-ch="2">Something in the garden</a></li>
+    <li><a href="#ch3" data-ch="3">The direction</a></li>
+    <li><a href="#ch4" data-ch="4">The photo</a></li>
+  </ul>
+  <a class="btn btn--sm bar__cta" href="#ch4">Get early access</a>
+</header>
+
+<div class="world" id="world" data-sc-verify-state="" aria-hidden="true"><canvas id="gl"></canvas></div>
+
+<div class="copy" id="copy">
+  <div class="hero" id="hero" data-ch="0">
+    <h1 class="sc-display hero__h">Blamed for every bad photo?</h1>
+    <p class="hero__p">Poza floats a pose guide over the iPhone camera and talks you through the shot. The next one is the keeper.</p>
+    <div class="hero__row">
+      <a class="btn" href="#ch4">Get early access</a>
+      <a class="link" href="#ch2">See it work</a>
+    </div>
+    <p class="hero__note">There is a garden ahead. She is waiting at the first island. Scroll to walk.</p>
+  </div>
+
+  <div class="cap cap--left" data-ch="1">
+    <h2 class="sc-display">The verdict</h2>
+    <p>Eleven frames. A bin in the corner, a chin in the shadow. She hands the phone back.</p>
+    <p class="verdict">You had one job.</p>
+    <a class="link cap__next" href="#ch2">Next</a>
+  </div>
+  <div class="cap cap--right" data-ch="2">
+    <h2 class="sc-display">Something in the garden</h2>
+    <p>That is Poza. In the app it floats a guide over the live camera and talks you through the shot while you aim. It is the only thing here that moves.</p>
+    <a class="link cap__next" href="#ch3">Next</a>
+  </div>
+  <div class="cap cap--left" data-ch="3">
+    <h2 class="sc-display">The direction</h2>
+    <p>For the one holding the phone: a faint figure shows where he should stand, and a voice says half a step left, lower it, chin down a touch. Then it says when you have it.</p>
+    <a class="link cap__next" href="#ch4">Next</a>
+  </div>
+
+  <div class="invite" id="invite" data-ch="4">
+    <h2 class="sc-display">That one.</h2>
+    <p class="sc-body">The photo that looks directed, on the first try. Poza is an iPhone app, in development. Leave an email and you will hear when early access opens.</p>
+    <form class="form" data-waitlist action="#" method="post" novalidate>
+      <label class="sr" for="email">Email address</label>
+      <input id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required>
+      <button class="btn" type="submit">Get early access</button>
+    </form>
+    <p class="form__note" aria-live="polite"></p>
+    <div class="invite__foot"><span>Never hear "you had one job" again.</span><span>iPhone only, for now.</span></div>
+  </div>
+</div>
+
+<!-- scroll track: five markers, one per chapter. The world is fixed; these only give the scroll its length and the harness its acts. -->
+<main class="track" id="top">
+  <section data-sc-act="flow" data-span="1.2"><span class="anchor" id="ch0"></span></section>
+  <section data-sc-act="flow" data-span="2.3"><span class="anchor" id="ch1"></span></section>
+  <section data-sc-act="flow" data-span="2.3"><span class="anchor" id="ch2"></span></section>
+  <section data-sc-act="flow" data-span="2.3"><span class="anchor" id="ch3"></span></section>
+  <section data-sc-act="flow" data-span="3.4"><span class="anchor" id="ch4"></span></section>
+</main>
+
+<!-- the still version: reduced motion, or no WebGL. Same chapters, same words. -->
+<div class="stills" id="stills">
+  <div class="hero">
+    <h1 class="sc-display hero__h">Blamed for every bad photo?</h1>
+    <p class="hero__p">Poza floats a pose guide over the iPhone camera and talks you through the shot. The next one is the keeper.</p>
+    <div class="hero__row"><a class="btn" href="#still-4">Get early access</a></div>
+  </div>
+  <section class="still" id="still-1">
+    <img src="assets/still-1.jpg" width="1440" height="900" alt="A marble statue of a woman with her arms crossed, holding a phone, among fluted ivory pillars in fog">
+    <div><h2 class="sc-display">The verdict</h2><p class="sc-body">Eleven frames. A bin in the corner, a chin in the shadow. She hands the phone back.</p><p class="sc-body"><strong>You had one job.</strong></p></div>
+  </section>
+  <section class="still" id="still-2">
+    <img src="assets/still-2.jpg" width="1440" height="900" alt="A small pale ghost glimpsed between the pillars">
+    <div><h2 class="sc-display">Something in the garden</h2><p class="sc-body">That is Poza. In the app it floats a guide over the live camera and talks you through the shot while you aim.</p></div>
+  </section>
+  <section class="still" id="still-3">
+    <img src="assets/still-3.jpg" width="1440" height="900" alt="A marble statue of a man mid-stride, a faint guide figure beside him, the ghost holding a tiny phone">
+    <div><h2 class="sc-display">The direction</h2><p class="sc-body">For the one holding the phone: a faint figure shows where he should stand, and a voice says half a step left, lower it, chin down a touch. Then it says when you have it.</p></div>
+  </section>
+  <section class="still" id="still-4">
+    <img src="assets/still-4.jpg" width="1440" height="900" alt="A marble statue of the couple, assembled from fragments, her face relaxed">
+    <div>
+      <h2 class="sc-display">The photo</h2>
+      <div class="invite">
+        <h2 class="sc-display">That one.</h2>
+        <p class="sc-body">The photo that looks directed, on the first try. Poza is an iPhone app, in development. Leave an email and you will hear when early access opens.</p>
+        <form class="form" data-waitlist action="#" method="post" novalidate>
+          <label class="sr" for="email2">Email address</label>
+          <input id="email2" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required>
+          <button class="btn" type="submit">Get early access</button>
+        </form>
+        <p class="form__note" aria-live="polite"></p>
+        <div class="invite__foot"><span>Never hear "you had one job" again.</span><span>iPhone only, for now.</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="scrollcraft.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+ScrollCraft.mount(document.body);
+
+/* ============================================================================
+   The pose garden. A fixed Three.js scene: ivory pillar planes, statue planes
+   on their islands, Poza the ghost, flowers, fog, a wet stone floor with
+   reflections. Scroll (through GSAP ScrollTrigger) moves a human-height camera
+   forward along a curve with a pause at each island. The fourth statue is cut
+   into shards that assemble as the camera arrives, and her face changes as it
+   completes. The scrollcraft engine is untouched; it serves the taste floor.
+   ========================================================================== */
+(function () {
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  var narrow = matchMedia('(max-width: 860px)');
+  var body = document.body;
+  var $ = function (s) { return document.querySelector(s); };
+  var clamp01 = function (v) { return v < 0 ? 0 : v > 1 ? 1 : v; };
+  var smooth = function (t) { t = clamp01(t); return t * t * (3 - 2 * t); };
+
+  // --- the waitlist form (no backend yet; shows the on-the-list state) ----
+  Array.prototype.forEach.call(document.querySelectorAll('[data-waitlist]'), function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = form.querySelector('input[type=email]'), note = form.parentNode.querySelector('.form__note');
+      var ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim());
+      if (!ok) { note.textContent = 'That does not look like an email address.'; input.focus(); return; }
+      var done = document.createElement('p'); done.className = 'form__ok'; done.setAttribute('role', 'status');
+      done.textContent = 'You’re on the list. We will write when it opens.';
+      form.replaceWith(done); note.textContent = '';
+    });
+  });
+
+  // --- scroll track: spans in viewport-heights --------------------------
+  var marks = Array.prototype.slice.call(document.querySelectorAll('.track section'));
+  function sizeTrack() {
+    var vh = innerHeight;
+    marks.forEach(function (s) { s.style.height = Math.round(parseFloat(s.dataset.span) * vh) + 'px'; });
+  }
+  sizeTrack();
+
+  // --- gates: reduced motion or no WebGL means the still version --------
+  function hasGL() {
+    try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch (e) { return false; }
+  }
+  if (reduce || !hasGL() || !window.THREE) {
+    body.classList.add('is-still');
+    $('#world').setAttribute('data-sc-verify-hold', 'true');
+    $('#world').setAttribute('data-sc-verify-state', 'still');
+    return;
+  }
+
+  // --- scene ------------------------------------------------------------
+  var world = $('#world'), canvas = $('#gl');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, narrow.matches ? 1.6 : 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  var FOG = new THREE.Color(0xEEF0EF);
+  var scene = new THREE.Scene();
+  scene.background = FOG;
+  scene.fog = new THREE.Fog(FOG, 4.5, 30);
+  var camera = new THREE.PerspectiveCamera(narrow.matches ? 70 : 54, 1, 0.1, 120);
+
+  // the path: a winding walk, z forward is negative
+  var PTS = [[0, 9], [0.5, 1], [-0.9, -7], [-1.3, -15], [1.0, -23], [1.1, -31], [-1.1, -39], [-0.7, -46], [0, -52], [0, -56]];
+  var curve = new THREE.CatmullRomCurve3(PTS.map(function (p) { return new THREE.Vector3(p[0], 0, p[1]); }), false, 'catmullrom', 0.4);
+  var T0 = [0, 0.15, 0.39, 0.63, 0.86, 1];        // path fraction at each chapter boundary
+  var SIDE = [0, 1, -1, 1, 0];                     // which side of the path each island sits on
+  var islandAt = [];
+  function pathPoint(t) { return curve.getPointAt(clamp01(t)); }
+  function pathTangent(t) { return curve.getTangentAt(clamp01(t)); }
+  function sideOf(t, side, dist) {
+    var p = pathPoint(t), tg = pathTangent(t);
+    var n = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    return p.clone().addScaledVector(n, side * dist);
+  }
+  for (var k = 1; k <= 4; k++) {
+    var ts = T0[k] + 0.5 * (T0[k + 1] - T0[k]);
+    islandAt[k] = k === 4 ? sideOf(1, 1, 1.9).addScaledVector(pathTangent(1), 5.4) : sideOf(ts + 0.025, SIDE[k], k === 2 ? 3.6 : 2.7);
+  }
+
+  // textures
+  var loader = new THREE.TextureLoader();
+  var suffix = narrow.matches ? '-m' : '';
+  var pending = 0;
+  function tex(name, ext) {
+    pending++;
+    var t = loader.load('assets/' + name + suffix + (ext || '.png'), function () { pending--; }, undefined, function () { pending--; });
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  }
+  var TX = {
+    p3: tex('g-pillars-3'), p2: tex('g-pillars-2'), p1: tex('g-pillar-1'),
+    her: tex('g-her'), him: tex('g-statue-2'), cpA: tex('g-couple-a'), cpB: tex('g-couple-b'),
+    poza: tex('g-poza'), pozaPhone: tex('g-poza-phone'), fl: tex('g-flowers-1')
+  };
+  pending++;
+  var ground = loader.load('assets/g-ground.jpg', function () { pending--; }, undefined, function () { pending--; });
+  ground.colorSpace = THREE.SRGBColorSpace; ground.wrapS = ground.wrapT = THREE.RepeatWrapping; ground.repeat.set(9, 18);
+
+  // soft fog sprite texture, procedural
+  var fogTex = (function () {
+    var c = document.createElement('canvas'); c.width = c.height = 256;
+    var g = c.getContext('2d'); var r = g.createRadialGradient(128, 128, 10, 128, 128, 128);
+    r.addColorStop(0, 'rgba(238,240,239,0.9)'); r.addColorStop(0.55, 'rgba(238,240,239,0.35)'); r.addColorStop(1, 'rgba(238,240,239,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 256, 256);
+    var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+
+  var billboards = [];   // planes that turn to face the camera about Y
+  function cutout(t, aspect, height, pos, opts) {
+    opts = opts || {};
+    var geo = new THREE.PlaneGeometry(height * aspect, height);
+    var mat = opts.soft
+      ? new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: opts.opacity || 1, depthWrite: false, fog: true, color: opts.tint || 0xffffff })
+      : new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.5, depthWrite: true, fog: true, color: opts.tint || 0xffffff });
+    var m = new THREE.Mesh(geo, mat);
+    m.position.set(pos.x, height / 2 + (opts.lift || 0), pos.z);
+    m.renderOrder = opts.order || 2;
+    scene.add(m);
+    if (opts.billboard !== false) billboards.push(m);
+    if (opts.reflect !== false) {
+      var rm = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: opts.reflectOpacity || 0.22, depthWrite: false, fog: true, color: 0xC9CDC9 }));
+      rm.position.set(pos.x, -height / 2 - (opts.lift || 0), pos.z); rm.scale.y = -1; rm.renderOrder = 0;
+      scene.add(rm); if (opts.billboard !== false) billboards.push(rm);
+      m.userData.mirror = rm;
+    }
+    return m;
+  }
+
+  // floor: wet ivory stone, slightly translucent so the reflections show through
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 170), new THREE.MeshBasicMaterial({ map: ground, transparent: true, opacity: 0.74, depthWrite: false, fog: true, color: 0xF2F0EA }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, -28); floor.renderOrder = 1; scene.add(floor);
+
+  // pillars along both sides of the walk, none inside the corridor, none on an island
+  var PILLARS = [[TX.p3, 0.558, 6.6], [TX.p2, 0.558, 6.2], [TX.p1, 0.558, 5.6]];
+  var rnd = (function (s) { return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; })(20260919);
+  for (var i = 0; i < 46; i++) {
+    var t = 0.02 + (i / 46) * 0.98 + (rnd() - 0.5) * 0.015;
+    var side = i % 2 === 0 ? 1 : -1;
+    var row = i % 5 === 0 ? 2 : (i % 3 === 0 ? 1 : 0);
+    var dist = [2.9 + rnd() * 1.4, 5.2 + rnd() * 1.6, 8 + rnd() * 2.5][row];
+    var pos = sideOf(t, side, dist);
+    var nearIsland = false;
+    for (var q = 1; q <= 4; q++) if (islandAt[q].distanceTo(pos) < 3.2) nearIsland = true;
+    if (nearIsland || (t < 0.09 && row === 0)) continue;
+    var P = PILLARS[Math.floor(rnd() * 3)];
+    var h = P[2] * (0.85 + rnd() * 0.35) * (row === 2 ? 1.25 : 1);
+    cutout(P[0], P[1], h, pos, { reflectOpacity: 0.16 });
+  }
+  for (var j = 0; j < 8; j++) {
+    var pe = pathPoint(1).clone().addScaledVector(pathTangent(1), 8 + j * 1.6); pe.x += (j % 2 ? 1 : -1) * (3 + rnd() * 3);
+    cutout(PILLARS[j % 3][0], 0.558, 6.4 + rnd(), pe, { reflectOpacity: 0.12 });
+  }
+  // two pillars flank Poza's gap in chapter two, so it is glimpsed between them
+  var gapL = sideOf(T0[2] + 0.5 * (T0[3] - T0[2]) - 0.012, -1, 2.6), gapR = sideOf(T0[2] + 0.5 * (T0[3] - T0[2]) + 0.06, -1, 2.5);
+  cutout(TX.p1, 0.558, 5.8, gapL, { reflectOpacity: 0.16 }); cutout(TX.p2, 0.558, 6.0, gapR, { reflectOpacity: 0.16 });
+
+  // chapter one: her, arms crossed, the phone
+  var STATUE_H = 2.9;
+  cutout(TX.her, 0.5625, STATUE_H, islandAt[1], { reflectOpacity: 0.3 });
+  // chapter three: him in the pose, the faint guide figure beside him, Poza with the tiny phone
+  cutout(TX.him, 0.558, STATUE_H, islandAt[3], { reflectOpacity: 0.3 });
+  var guidePos = islandAt[3].clone(); guidePos.x += SIDE[3] * 0.55; guidePos.z += 0.35;
+  var guide = cutout(TX.him, 0.558, STATUE_H * 0.98, guidePos, { soft: true, opacity: 0.34, tint: 0x9FD3FF, reflect: false, order: 3 });
+  var pozaPhone = cutout(TX.pozaPhone, 0.667, 0.85, islandAt[3].clone().add(new THREE.Vector3(-SIDE[3] * 1.05, 0, -0.8)), { soft: true, opacity: 0.92, reflect: false, order: 3, lift: 1.05 });
+  // chapter two: Poza between the pillars, the only thing in the garden that moves
+  var pozaHome = sideOf(T0[2] + 0.5 * (T0[3] - T0[2]) + 0.02, -1, 3.4);
+  var poza = cutout(TX.poza, 0.667, 1.4, pozaHome, { soft: true, opacity: 0.86, reflect: false, order: 3, lift: 0.9 });
+
+  // chapter four: the couple, cut into shards that assemble as the camera arrives; a second skin carries her other face
+  var shards = new THREE.Group(); shards.position.copy(islandAt[4]); shards.position.y = STATUE_H / 2;
+  var mirrorShards = new THREE.Group(); mirrorShards.position.copy(islandAt[4]); mirrorShards.position.y = -STATUE_H / 2; mirrorShards.scale.y = -1;
+  var COLS = 5, ROWS = 8, SWID = STATUE_H * 0.5625, SW = SWID / COLS, SH = STATUE_H / ROWS;
+  var shardList = [], faceB = [];
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+    var g = new THREE.PlaneGeometry(SW, SH);
+    var uv = g.attributes.uv;
+    for (var u = 0; u < uv.count; u++) uv.setXY(u, (c + uv.getX(u)) / COLS, (ROWS - 1 - r + uv.getY(u)) / ROWS);
+    var bx = -SWID / 2 + SW * (c + 0.5), by = STATUE_H / 2 - SH * (r + 0.5);
+    var sm = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: TX.cpA, transparent: true, alphaTest: 0.5, depthWrite: true, fog: true })); sm.renderOrder = 2; shards.add(sm);
+    var sb = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: TX.cpB, transparent: true, opacity: 0, depthWrite: false, fog: true })); sb.renderOrder = 4; shards.add(sb); faceB.push(sb.material);
+    var mm = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: TX.cpA, transparent: true, opacity: 0.3, depthWrite: false, fog: true, color: 0xC9CDC9 })); mm.renderOrder = 0; mirrorShards.add(mm);
+    var a1 = rnd() * Math.PI * 2, a2 = rnd() * Math.PI, rad = 1.2 + rnd() * 2.2;
+    shardList.push({ m: sm, b: sb, mm: mm, bx: bx, by: by,
+      sx: Math.cos(a1) * Math.sin(a2) * rad, sy: Math.cos(a2) * rad * 0.7 + 0.6, sz: Math.sin(a1) * Math.sin(a2) * rad * 0.6,
+      rx: (rnd() - 0.5) * 2.4, ry: (rnd() - 0.5) * 2.4, rz: (rnd() - 0.5) * 2.4 });
+  }
+  scene.add(shards); scene.add(mirrorShards); billboards.push(shards); billboards.push(mirrorShards);
+
+  // flowers close to the walk, low, facing the camera
+  [[0.06, -1, 1.7], [0.31, 1, 1.8], [0.55, -1, 1.7], [0.79, 1, 1.9], [0.97, -1, 1.8]].forEach(function (f) {
+    cutout(TX.fl, 1.79, 1.1, sideOf(f[0], f[1], f[2]), { reflect: false, lift: -0.35 });
+  });
+
+  // fog banks: soft planes that drift, giving the fog volume between the pillars
+  var fogs = [];
+  for (var fi = 0; fi < 26; fi++) {
+    var ft = fi / 26; var fpos = sideOf(ft, fi % 2 ? 1 : -1, 1.5 + rnd() * 5);
+    var fm = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), new THREE.MeshBasicMaterial({ map: fogTex, transparent: true, opacity: 0.32 + rnd() * 0.2, depthWrite: false, fog: false }));
+    fm.position.set(fpos.x, 1.2 + rnd() * 1.5, fpos.z); fm.renderOrder = 3; fm.userData.ph = rnd() * 6.28; fm.userData.x0 = fpos.x;
+    scene.add(fm); fogs.push(fm); billboards.push(fm);
+  }
+
+  // --- scroll -> camera ----------------------------------------------
+  var S = { p: 0 };
+  var track = $('.track');
+  function pauseEase(p) { return p + 0.12 * Math.sin(2 * Math.PI * p); }   // fast between islands, slow at each one
+  var spans = marks.map(function (s) { return parseFloat(s.dataset.span); });
+  var spanTotal = spans.reduce(function (a, b) { return a + b; }, 0);
+  function chapterOf(pp) {
+    var acc = 0;
+    for (var i = 0; i < spans.length; i++) { var w = spans[i] / spanTotal; if (pp <= acc + w || i === spans.length - 1) return { k: i, p: clamp01((pp - acc) / w) }; acc += w; }
+  }
+  if (window.gsap && window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.to(S, { p: 1, ease: 'none', scrollTrigger: { trigger: track, start: 'top top', end: 'bottom bottom', scrub: 0.35 } });
+  } else {
+    addEventListener('scroll', function () { S.p = clamp01(scrollY / Math.max(track.offsetHeight - innerHeight, 1)); }, { passive: true });
+  }
+
+  var pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (fine) addEventListener('pointermove', function (e) { pointer.tx = (e.clientX / innerWidth - 0.5) * 2; pointer.ty = (e.clientY / innerHeight - 0.5) * 2; }, { passive: true });
+
+  var copyBlocks = Array.prototype.slice.call(document.querySelectorAll('#copy [data-ch]'));
+  var chapterLinks = Array.prototype.slice.call(document.querySelectorAll('.bar__chapters a'));
+  var lastState = '', curCh = -1, shown = false, camPos = new THREE.Vector3(), look = new THREE.Vector3(), ahead = new THREE.Vector3();
+  var camH = narrow.matches ? 1.5 : 1.6;
+
+  function resize() {
+    var w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.fov = narrow.matches ? 70 : 54; camera.updateProjectionMatrix();
+    camH = narrow.matches ? 1.5 : 1.6;
+    sizeTrack(); if (window.ScrollTrigger) ScrollTrigger.refresh();
+  }
+  addEventListener('resize', resize); resize();
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!shown && pending <= 0) { shown = true; world.classList.add('is-ready'); }
+    var ch = chapterOf(S.p), k = ch.k, p = ch.p;
+    var t;
+    if (k === 0) t = T0[0] + (T0[1] - T0[0]) * smooth(p);
+    else if (k === 4) t = T0[4] + (T0[5] - T0[4]) * (1 - Math.pow(1 - p, 2.2));
+    else t = T0[k] + (T0[k + 1] - T0[k]) * pauseEase(p);
+    t = clamp01(t);
+
+    camPos.copy(pathPoint(t)); camPos.y = camH;
+    ahead.copy(pathPoint(Math.min(t + 0.03, 1))); ahead.y = camH - 0.25;
+    var w = 0;
+    if (k >= 1 && k <= 3) w = Math.exp(-Math.pow((p - 0.5) / 0.24, 2));
+    if (k === 4) w = smooth((p - 0.05) / 0.4);
+    if (k >= 1) {
+      var st = (k === 2 ? pozaHome : islandAt[k]).clone(); st.y = k === 2 ? 1.45 : (narrow.matches ? (k === 4 ? 0.3 : 1.0) : 1.35);
+      look.copy(ahead).lerp(st, w);
+    } else look.copy(ahead);
+    pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06;
+    camera.position.copy(camPos);
+    camera.lookAt(look);
+    camera.rotateY(-pointer.x * 0.035); camera.rotateX(-pointer.y * 0.02);
+
+    for (var i = 0; i < billboards.length; i++) {
+      var b = billboards[i];
+      b.rotation.y = Math.atan2(camera.position.x - b.position.x, camera.position.z - b.position.z);
+    }
+    var tm = now * 0.001;
+    for (var f = 0; f < fogs.length; f++) { var fm = fogs[f]; fm.position.x = fm.userData.x0 + Math.sin(tm * 0.11 + fm.userData.ph) * 0.9; }
+    ground.offset.y = (tm * 0.004) % 1;
+
+    // Poza is the one thing that moves: it bobs, and in chapter two it drifts along behind the pillars as you pass
+    var drift = k === 2 ? (p - 0.5) * 1.6 : 0;
+    poza.position.x = pozaHome.x + Math.sin(tm * 0.9) * 0.08 + drift * pathTangent(T0[2] + 0.12).x;
+    poza.position.z = pozaHome.z + drift * pathTangent(T0[2] + 0.12).z;
+    poza.position.y = 0.9 + 1.4 / 2 + Math.sin(tm * 1.3) * 0.09;
+    poza.material.opacity = 0.74 + Math.sin(tm * 2.1) * 0.08;
+    pozaPhone.position.y = 1.05 + 0.85 / 2 + Math.sin(tm * 1.1 + 1) * 0.05;
+    guide.material.opacity = 0.28 + Math.sin(tm * 1.7) * 0.06;
+
+    // the fourth statue assembles as the camera arrives; when whole, her face changes
+    var a = k === 4 ? smooth((p - 0.08) / 0.52) : (k > 4 ? 1 : 0);
+    var ia = 1 - a;
+    var faceMix = k === 4 ? smooth((p - 0.66) / 0.16) : 0;
+    for (var s = 0; s < shardList.length; s++) {
+      var sh = shardList[s];
+      sh.m.position.set(sh.bx + sh.sx * ia, sh.by + sh.sy * ia, sh.sz * ia);
+      sh.m.rotation.set(sh.rx * ia, sh.ry * ia, sh.rz * ia);
+      sh.b.position.copy(sh.m.position); sh.b.rotation.copy(sh.m.rotation);
+      sh.mm.position.copy(sh.m.position); sh.mm.rotation.copy(sh.m.rotation);
+    }
+    for (var fb = 0; fb < faceB.length; fb++) faceB[fb].opacity = faceMix;
+
+    var capOp = [0, 0, 0, 0, 0];
+    capOp[0] = k === 0 ? 1 - smooth((p - 0.35) / 0.35) : 0;
+    for (var c = 1; c <= 3; c++) capOp[c] = k === c ? smooth((p - 0.28) / 0.14) * (1 - smooth((p - 0.72) / 0.14)) : 0;
+    capOp[4] = k === 4 ? smooth((p - 0.7) / 0.14) : 0;
+    for (var cb = 0; cb < copyBlocks.length; cb++) {
+      var el = copyBlocks[cb], ck = parseInt(el.dataset.ch, 10), o = capOp[ck];
+      el.style.opacity = o.toFixed(3);
+      el.style.transform = 'translate3d(0,' + ((1 - o) * 12).toFixed(1) + 'px,0)';
+      el.classList.toggle('is-on', o > 0.5);
+    }
+    if (k !== curCh) { curCh = k; chapterLinks.forEach(function (l) { l.classList.toggle('is-here', parseInt(l.dataset.ch, 10) === k); }); }
+
+    renderer.render(scene, camera);
+    var state = k + ':' + camPos.x.toFixed(2) + ':' + camPos.z.toFixed(2) + ':' + w.toFixed(2) + ':' + capOp.map(function (v) { return v.toFixed(2); }).join(',') + ':' + a.toFixed(2) + ':' + faceMix.toFixed(2);
+    if (state !== lastState) { world.setAttribute('data-sc-verify-state', state); lastState = state; }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
