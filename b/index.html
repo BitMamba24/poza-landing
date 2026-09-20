@@ -481,7 +481,9 @@ ScrollCraft.mount(document.body);
 
   // flowers close to the walk, low, facing the camera
   [[0.06, -1, 1.7], [0.31, 1, 1.8], [0.55, -1, 1.7], [0.79, 1, 1.9], [0.97, -1, 1.8]].forEach(function (f) {
-    cutout(TX.fl, 1.79, 1.1, sideOf(f[0], f[1], f[2]), { reflect: false, lift: -0.35 });
+    var fp = sideOf(f[0], f[1], f[2]);
+    ground(fp, 2.3, 1.1, 0.55);
+    cutout(TX.fl, 1.79, 1.1, fp, { reflect: false, lift: -0.1, soft: true, order: 8 });
   });
 
   // fog banks: soft planes that drift, giving the fog volume between the pillars
